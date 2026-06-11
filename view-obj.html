@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<!-- 开发工具：OBJ 模型查看器（?a=角度°&f=文件名），无头截图用 -->
+<head><meta charset="UTF-8"><style>body{margin:0;background:#202430}</style></head>
+<body>
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OBJLoader.js"></script>
+<script>
+  const q = new URLSearchParams(location.search);
+  const angle = (parseFloat(q.get('a')) || 0) * Math.PI / 180;
+  const file = q.get('f') || 'assets/daji.obj';
+  const texUrl = q.get('tex'); // 可选贴图（map_Kd）
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  document.body.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x202430);
+  const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.01, 100);
+  scene.add(new THREE.HemisphereLight(0xbbccff, 0x332222, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+  dir.position.set(2, 3, 4);
+  scene.add(dir);
+
+  let tex = null;
+  if (texUrl) {
+    tex = new THREE.TextureLoader().load(texUrl);
+    tex.encoding = THREE.sRGBEncoding;
+    tex.flipY = true;
+  }
+  new THREE.OBJLoader().load(file, (obj) => {
+    obj.traverse((n) => {
+      if (n.isMesh) {
+        const hasColor = !!n.geometry.attributes.color;
+        n.material = new THREE.MeshStandardMaterial({ vertexColors: hasColor, map: tex, roughness: 0.8 });
+        if (!n.geometry.attributes.normal) n.geometry.computeVertexNormals();
+      }
+    });
+    const box = new THREE.Box3().setFromObject(obj);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    obj.position.sub(center); // 居中
+    scene.add(obj);
+    const d = Math.max(size.x, size.y, size.z) * 1.6;
+    camera.position.set(Math.sin(angle) * d, size.y * 0.15, Math.cos(angle) * d);
+    camera.lookAt(0, 0, 0);
+    renderer.render(scene, camera);
+    document.title = 'OBJ OK ' + JSON.stringify({ x: +size.x.toFixed(3), y: +size.y.toFixed(3), z: +size.z.toFixed(3) });
+    const div = document.createElement('div');
+    div.id = 'obj-info';
+    div.textContent = document.title;
+    document.body.appendChild(div);
+  }, undefined, (err) => { document.title = 'OBJ FAIL'; console.error(err); });
+</script>
+</body>
+</html>
